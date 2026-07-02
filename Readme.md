@@ -243,17 +243,66 @@ This project is not just about coding—it is about becoming a **responsible sof
 
 ***
 
-## ✅ Added Features (Homework)
+## ✅ Homework Submission — Added Features
 
-On the **CSV tab**, three new fields and a **"Load / Filter"** button were added next to the original "read as csv" button:
+### 📖 Program Description
 
-* **From (m) / To (n)** — Partial loading. Loads only records m to n (1-based, inclusive). Leave both empty to load everything.
-* **Filter file_type** — Filters rows where the `file_type_guess` column contains the given text (e.g. `exe`). Leave empty to skip filtering.
-* Both can be used **together**: the filter is applied first, then the m–n range is taken from the filtered results.
-* Invalid input (non-numeric range, m > n, m beyond available rows, missing file) shows a friendly error message instead of crashing.
+**Text/CSV Viewer** is a Windows Forms (C#) desktop application for browsing large text and CSV files. This version was extended to handle the MalwareBazaar sample dataset (`data/malware_500.csv`) with three main capabilities beyond the original template:
 
-### How it works
-* `ReadCsvRows()` reads the CSV, skipping comment lines (`#...`) and picking up the real header line (the `#` line containing the quoted column names).
-* `btLoadFiltered_Click()` applies the optional filter, then the optional m–n range, then displays the result with `DisplayRows()`.
+1. **Partial Loading (m–n)** — load only a specific range of records instead of the whole file
+2. **Filtering by file type** — show only rows matching a given `file_type_guess` value (e.g. `exe`)
+3. **Combined filter + range**, plus safe handling of large files and bad input so the program never crashes
 
-See `test-report/Basev100.xlsx` for the test cases and results.
+The program has two tabs:
+* **Text** — reads a plain text file and shows its raw content
+* **CSV** — reads a CSV file into a data grid, with the original `read as csv` button and the new controls described below
+
+### 🖥️ New UI Controls (CSV tab)
+
+| Control | Purpose |
+|---|---|
+| **From (m)** | Start record number (1-based, inclusive) for partial loading |
+| **To (n)** | End record number (1-based, inclusive) for partial loading |
+| **Filter file_type** | Text to match against the `file_type_guess` column (case-insensitive, partial match) |
+| **Load / Filter** | Runs the load, using whichever of the fields above are filled in |
+
+Leaving **From/To** empty loads the full (capped) file. Leaving **Filter file_type** empty skips filtering. Both can be filled in together — the filter is applied first, then the m–n range is taken from the filtered results.
+
+### 🛡️ Error Handling & Safety
+
+The program is designed to **never crash**, even with bad input or huge files:
+
+| Situation | Behavior |
+|---|---|
+| Invalid range (`m > n`, non-numeric, `m`/`n` < 1) | Shows an error message box, no crash |
+| `m` beyond the number of available records | Shows an error message box |
+| File doesn't exist | Shows an error message box |
+| Filter text matches no rows | Grid is cleared, shows an info message |
+| CSV has no `file_type_guess` column | Shows an error message instead of silently guessing the wrong column |
+| File has more rows than the load cap (currently **50,000**) | Shows a "Row Limit" notice; only the first 50,000 data rows are loaded, so the app doesn't hang or throw `OutOfMemoryException` on very large files |
+
+This row cap applies to **both** the original `read as csv` button and the new `Load / Filter` button.
+
+### ⚙️ How It Works (Implementation Notes)
+
+* `ReadCsvRows()` — reads the CSV line by line (up to the row cap), skips comment lines (`#...`), and picks up the real header from the `#` line that contains the quoted column names (e.g. `# "first_seen_utc","sha256_hash",...`). Falls back to treating the first data row as the header if no such comment line is found.
+* `SplitCsvLine()` — splits a line by comma and trims stray spaces/quotes from each value.
+* `DisplayRows()` — clears and repopulates the `DataGridView` with the given headers/rows.
+* `btLoadFiltered_Click()` — the handler for the new "Load / Filter" button: validates the file, applies the optional filter, applies the optional m–n range, then displays the result. All steps are wrapped in error handling.
+* `SetupExtraControls()` — creates the new labels/textboxes/button in code (instead of editing the WinForms Designer file) and adds them to the CSV tab.
+
+### 🧪 Testing
+
+All features above were tested against `data/malware_500.csv` (491 data rows) and a large real-world `full.csv` file (to trigger the row-limit path). Test cases, steps, expected vs. actual results, and pass/fail status are documented in **`Basev100.xlsx`** (submitted alongside this repo), covering normal cases, edge cases, and error cases — including range validation, filtering, missing columns, and the 50,000-row cap.
+
+### ▶️ How to Run & Test
+
+1. Open the solution in Visual Studio and **Rebuild Solution**
+2. Run the program, go to the **CSV** tab
+3. Click **Browse** and select a CSV file (e.g. `data/malware_500.csv`)
+4. Try:
+   * `read as csv` — loads the whole file (capped at 50,000 rows)
+   * `Load / Filter` with From/To filled in — partial loading
+   * `Load / Filter` with Filter file_type filled in — filtering
+   * `Load / Filter` with both filled in — combined filter + range
+   * Invalid inputs (e.g. `From=200, To=100`) — confirm the error messages appear and the app doesn't crash
